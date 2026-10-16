@@ -1,19 +1,20 @@
 import { applyEdits, createScanner, format, SyntaxKind } from "jsonc-parser";
+import { parseJsonc } from "./jsonc.js";
 
 const formatOptions = { insertSpaces: true, tabSize: 4, eol: "\n" };
 
 function hasMultipleJsonRoots(source) {
-  const scanner = createScanner(source, true);
+  const scanner = createScanner(source);
   let depth = 0;
   let start = 0;
-  let previousEnd = 0;
   let count = 0;
 
   for (let token = scanner.scan(); token !== SyntaxKind.EOF; token = scanner.scan()) {
+    if (scanner.getTokenError()) return false;
+    if (token >= SyntaxKind.LineCommentTrivia && token <= SyntaxKind.Trivia) continue;
     const offset = scanner.getTokenOffset();
     if (depth === 0) {
       if (token !== SyntaxKind.OpenBraceToken && token !== SyntaxKind.OpenBracketToken) return false;
-      if (source.slice(previousEnd, offset).trim()) return false;
       start = offset;
       depth = 1;
     } else if (token === SyntaxKind.OpenBraceToken || token === SyntaxKind.OpenBracketToken) {
@@ -21,9 +22,8 @@ function hasMultipleJsonRoots(source) {
     } else if (token === SyntaxKind.CloseBraceToken || token === SyntaxKind.CloseBracketToken) {
       depth -= 1;
       if (depth === 0) {
-        previousEnd = offset + scanner.getTokenLength();
         try {
-          JSON.parse(source.slice(start, previousEnd));
+          parseJsonc(source.slice(start, offset + scanner.getTokenLength()));
         } catch {
           return false;
         }
@@ -32,11 +32,11 @@ function hasMultipleJsonRoots(source) {
     }
   }
 
-  return count > 1 && depth === 0 && !source.slice(previousEnd).trim();
+  return count > 1 && depth === 0;
 }
 
 export function formatJson(source) {
-  JSON.parse(source);
+  parseJsonc(source);
   return applyEdits(source, format(source, undefined, formatOptions));
 }
 
@@ -52,23 +52,17 @@ export function formatPastedJson(source) {
 }
 
 export function minifyJson(source) {
-  JSON.parse(source);
+  parseJsonc(source);
+  const scanner = createScanner(source);
   let compact = "";
-  let inString = false;
-  let escaped = false;
-
-  for (const char of source) {
-    if (inString) {
-      compact += char;
-      if (escaped) escaped = false;
-      else if (char === "\\") escaped = true;
-      else if (char === '"') inString = false;
-    } else if (char === '"') {
-      inString = true;
-      compact += char;
-    } else if (char !== " " && char !== "\t" && char !== "\n" && char !== "\r") {
-      compact += char;
-    }
+  let afterLineComment = false;
+  for (let token = scanner.scan(); token !== SyntaxKind.EOF; token = scanner.scan()) {
+    if (token === SyntaxKind.Trivia || token === SyntaxKind.LineBreakTrivia) continue;
+    // A line comment must end before the next token, even when removing whitespace.
+    if (afterLineComment) compact += "\n";
+    const offset = scanner.getTokenOffset();
+    compact += source.slice(offset, offset + scanner.getTokenLength());
+    afterLineComment = token === SyntaxKind.LineCommentTrivia;
   }
 
   return compact;
@@ -83,7 +77,7 @@ export function unescapeJson(source) {
   if (!value) throw new Error("请先输入需要去转义的内容");
 
   try {
-    const decoded = JSON.parse(value);
+    const decoded = parseJsonc(value);
     if (typeof decoded === "string") return decoded;
     throw new Error("请输入带转义的 JSON 字符串");
   } catch (error) {

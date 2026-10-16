@@ -1,7 +1,6 @@
 import "./styles.css";
 import { acceptCompletion, autocompletion } from "@codemirror/autocomplete";
 import { indentWithTab } from "@codemirror/commands";
-import { json } from "@codemirror/lang-json";
 import { getSearchQuery, openSearchPanel, search, SearchQuery, searchPanelOpen, setSearchQuery } from "@codemirror/search";
 import { bracketMatching, codeFolding, foldGutter, HighlightStyle, indentUnit, syntaxHighlighting, syntaxTree, unfoldAll } from "@codemirror/language";
 import { forEachDiagnostic, linter } from "@codemirror/lint";
@@ -12,6 +11,8 @@ import { minimalSetup } from "codemirror";
 import { describeFold, foldAllRecursively } from "./fold-info.js";
 import { collectJsonDiagnostics } from "./diagnostics.js";
 import { jsonPropertyCompletion } from "./completion.js";
+import { jsonc } from "./jsonc-language.js";
+import { startsWithJsonContainer } from "./jsonc.js";
 import { decodedItemChanges, escapedJsonItems, luaJsonItemChanges } from "./inner-unescape.js";
 import { overviewTop } from "./overview.js";
 import { activeJsonScope, bracketJsonScope, guidesForLine } from "./scope-guides.js";
@@ -353,7 +354,7 @@ const editor = new EditorView({
         return element;
       },
     }),
-    json(),
+    jsonc(),
     search({ top: true, createPanel: createJsonSearchPanel }),
     autocompletion({ override: [jsonPropertyCompletion] }),
     linter((view) => collectJsonDiagnostics(view.state.doc.toString()), { delay: 250 }),
@@ -499,7 +500,7 @@ function showDecodedItems(items) {
 document.querySelector("#unescape").addEventListener("click", () => {
   try {
     const source = editorText();
-    if (!/^[\s]*[\[{]/.test(source)) {
+    if (!startsWithJsonContainer(source)) {
       runTransform(unescapeJson, "已去除转义字符");
       return;
     }
@@ -578,7 +579,7 @@ decodedItems.addEventListener("click", async (event) => {
   }
 });
 document.querySelector("#strip-comments").addEventListener("click", () => runTransform(stripJsonComments, "已去掉注释"));
-document.querySelector("#minify").addEventListener("click", () => runTransform(minifyJson, "已压缩 JSON"));
+document.querySelector("#minify").addEventListener("click", () => runTransform(minifyJson, "已压缩，保留注释"));
 document.querySelector("#escape").addEventListener("click", () => runTransform(escapeJson, "已压缩并转义"));
 document.querySelector("#fold-all").addEventListener("click", () => {
   showStatus(foldAllRecursively(editor) ? "已递归折叠全部层级，可点击行号旁箭头或省略号逐层展开" : "当前没有可折叠的内容");
@@ -613,7 +614,7 @@ function loadAction(action) {
   if ((action.type === "files" || action.type === "file") && Array.isArray(action.payload)) {
     const file = action.payload[0];
     setEditorValue("");
-    if (file?.isFile && /\.json$/i.test(file.name) && window.jsonView?.readFile) {
+    if (file?.isFile && /\.jsonc?$/i.test(file.name) && window.jsonView?.readFile) {
       try {
         setEditorValue(window.jsonView.readFile(file.path));
         showStatus(`已载入 ${file.name}，修改仅在编辑器中生效`);

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "@codemirror/state";
-import { json } from "@codemirror/lang-json";
+import { jsonc } from "../src/jsonc-language.js";
 import { codeFolding, foldable } from "@codemirror/language";
 import { describeFold } from "../src/fold-info.js";
 import { collectJsonDiagnostics } from "../src/diagnostics.js";
@@ -73,10 +73,71 @@ test("formatting, minifying, and compact escaping preserve repeated keys and ori
   assert.equal(unescapeJson(escapeJson(source)), compact);
 });
 
+test("formatting and pasting JSONC preserve all comments and original value text", () => {
+  const source = '// head\n{"6001": {// "sadad"\n"first_start_ts": 1791734400}, /* block */ "literal":"\\u0061", "big":9007199254740993, "big":1e+2} // tail';
+  const formatted = formatJson(source);
+  for (const literal of ['// head', '// "sadad"', '/* block */', '// tail', '"\\u0061"', '9007199254740993', '1e+2']) {
+    assert.ok(formatted.includes(literal));
+  }
+  assert.equal((formatted.match(/"big"/g) ?? []).length, 2);
+  assert.match(formatted, /\n    "6001": \{/);
+  assert.match(formatted, /\n        "first_start_ts": 1791734400/);
+  assert.deepEqual(formatPastedJson(source), { text: formatted, formatted: true });
+  assert.equal(collectJsonDiagnostics(formatted).filter((problem) => problem.severity === "error").length, 0);
+});
+
+test("minifying and escaping JSONC preserve comments, values, and repeated keys", () => {
+  const source = '// head\r\n{ /* block */ "url": "https://a.test/", "text": "/* literal */ // literal", "key":9007199254740993, "key":1e+2, "escaped":"\\u0061" // tail\r\n}';
+  const compact = '// head\n{/* block */"url":"https://a.test/","text":"/* literal */ // literal","key":9007199254740993,"key":1e+2,"escaped":"\\u0061"// tail\n}';
+  assert.equal(minifyJson(source), compact);
+  assert.equal(JSON.parse(escapeJson(source)), compact);
+  assert.equal(unescapeJson(escapeJson(source)), compact);
+  assert.equal(unescapeJson(escapeJson(source).slice(1, -1)), compact);
+  assert.equal(unescapeJson(`/* string */ ${escapeJson(source)} // tail`), compact);
+  assert.equal(collectJsonDiagnostics(compact).filter((problem) => problem.severity === "error").length, 0);
+});
+
+test("minifying keeps necessary newlines after line comments and preserves block comment text", () => {
+  for (const [source, compact] of [
+    ['// first\r\n// second\r\n { "a": 1, // value\r\n "b": 2 } // tail\r\n', '// first\n// second\n{"a":1,// value\n"b":2}// tail'],
+    ['{ /* first\n    second */ "a": /* before */ 1 /* after */ }', '{/* first\n    second */"a":/* before */1/* after */}'],
+    ['1 // final comment', '1// final comment'],
+    ['{ "url": "https://test/", "text": "/* string */ // string" }', '{"url":"https://test/","text":"/* string */ // string"}'],
+  ]) {
+    assert.equal(minifyJson(source), compact);
+    assert.equal(minifyJson(compact), compact);
+    assert.equal(unescapeJson(escapeJson(source)), compact);
+    assert.deepEqual(JSON.parse(stripJsonComments(compact)), JSON.parse(stripJsonComments(source)));
+  }
+});
+
+test("JSONC transformations still reject syntax errors and unfinished comments", () => {
+  for (const source of ['{"a":1 /* unfinished', '{"a":1, /* trailing comma */}', '{"a":1 /* missing comma */ "b":2}']) {
+    assert.throws(() => formatJson(source), SyntaxError);
+    assert.throws(() => minifyJson(source), SyntaxError);
+    assert.throws(() => escapeJson(source), SyntaxError);
+    assert.deepEqual(formatPastedJson(source), { text: source, formatted: false });
+  }
+});
+
+test("pasting consecutive JSONC records preserves comments and leaves malformed input unchanged", () => {
+  const source = '// head\n{"a":1} // between\n/* next */ {"b":2} // tail';
+  const result = formatPastedJson(source);
+  assert.equal(result.formatted, true);
+  for (const comment of ['// head', '// between', '/* next */', '// tail']) {
+    assert.ok(result.text.includes(comment));
+  }
+  assert.match(result.text, /\n    "a": 1/);
+  assert.match(result.text, /\n    "b": 2/);
+  assert.ok(collectJsonDiagnostics(result.text).some((problem) => problem.message.includes("多余内容")));
+  const malformed = '{}\n{} /* unfinished';
+  assert.deepEqual(formatPastedJson(malformed), { text: malformed, formatted: false });
+});
+
 test("fold previews show the number of array items and object properties", () => {
   const state = EditorState.create({
     doc: '{\n  "items": [\n    1,\n    2,\n    3\n  ]\n}',
-    extensions: [json(), codeFolding()],
+    extensions: [jsonc(), codeFolding()],
   });
   const objectRange = foldable(state, 0, state.doc.line(1).to);
   const arrayLine = state.doc.line(2);
@@ -92,7 +153,7 @@ test("nested JSON scopes identify the active brackets and guide levels", () => {
   const state = EditorState.create({
     doc: source,
     selection: { anchor: source.indexOf("3") },
-    extensions: [json()],
+    extensions: [jsonc()],
   });
   const active = activeJsonScope(state);
   assert.equal(source[active.from], "[");
@@ -102,15 +163,15 @@ test("nested JSON scopes identify the active brackets and guide levels", () => {
   const opening = EditorState.create({
     doc: source,
     selection: { anchor: source.indexOf("[") },
-    extensions: [json()],
+    extensions: [jsonc()],
   });
   assert.equal(activeJsonScope(opening).from, source.indexOf("["));
   assert.equal(bracketJsonScope(opening).from, source.indexOf("["));
-  const inside = EditorState.create({ doc: source, selection: { anchor: source.indexOf("3") }, extensions: [json()] });
+  const inside = EditorState.create({ doc: source, selection: { anchor: source.indexOf("3") }, extensions: [jsonc()] });
   assert.equal(bracketJsonScope(inside), null);
-  const closing = EditorState.create({ doc: source, selection: { anchor: source.indexOf("]") + 1 }, extensions: [json()] });
+  const closing = EditorState.create({ doc: source, selection: { anchor: source.indexOf("]") + 1 }, extensions: [jsonc()] });
   assert.equal(bracketJsonScope(closing).to - 1, source.indexOf("]"));
-  const rootOpening = EditorState.create({ doc: source, selection: { anchor: 0 }, extensions: [json()] });
+  const rootOpening = EditorState.create({ doc: source, selection: { anchor: 0 }, extensions: [jsonc()] });
   assert.equal(activeJsonScope(rootOpening).from, 0);
   assert.deepEqual(guidesForLine(state, state.doc.line(5), active), [
     { column: 0, active: false },

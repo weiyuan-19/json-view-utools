@@ -1,0 +1,26 @@
+@top JsonText { value }
+
+value { Object | Array | String | Number | True | False | Null }
+Object { "{" (Property ("," Property)*)? "}" }
+Array { "[" (value ("," value)*)? "]" }
+Property { PropertyName ":" value }
+PropertyName[isolate] { quotedString }
+String[isolate] { quotedString }
+
+@skip { whitespace | LineComment | BlockComment }
+
+@tokens {
+  whitespace { $[ \t\r\n]+ }
+  LineComment { "//" ![\r\n]* }
+  BlockComment { "/*" ( ![*] | "*"+ ![*/] )* "*"+ "/" }
+  quotedString { '"' ( $[\u{20}\u{21}\u{23}-\u{5b}\u{5d}-\u{10ffff}] | "\\" escape )* '"' }
+  escape { $["\\/bfnrt] | "u" hexDigit hexDigit hexDigit hexDigit }
+  hexDigit { $[0-9a-fA-F] }
+  Number { "-"? ("0" | $[1-9] @digit*) ("." @digit+)? ($[eE] $[+\-]? @digit+)? }
+  True { "true" }
+  False { "false" }
+  Null { "null" }
+  "{" "}" "[" "]" "," ":"
+}
+
+@detectDelim

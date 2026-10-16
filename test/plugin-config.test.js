@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 const plugin = JSON.parse(readFileSync(new URL("../public/plugin.json", import.meta.url), "utf8"));
 const packageConfig = JSON.parse(readFileSync(new URL("../public/package.json", import.meta.url), "utf8"));
 
-test("opens from a command, JSON shaped text, or one JSON file", () => {
+test("opens from a command, JSON shaped text, or one JSON or JSONC file", () => {
   assert.equal(plugin.main, "index.html");
   assert.equal(plugin.preload, "preload.js");
   assert.equal(packageConfig.type, "commonjs");
@@ -24,6 +24,6 @@ test("opens from a command, JSON shaped text, or one JSON file", () => {
 
   const files = commands.find((command) => command.type === "files");
   assert.equal(files.fileType, "file");
-  assert.deepEqual(files.extensions, ["json"]);
+  assert.deepEqual(files.extensions, ["json", "jsonc"]);
   assert.equal(files.maxLength, 1);
 });

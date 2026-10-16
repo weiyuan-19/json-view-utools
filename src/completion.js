@@ -1,10 +1,14 @@
 import { createScanner, SyntaxKind } from "jsonc-parser";
 
 function isObjectKeyPosition(text, position) {
-  const scanner = createScanner(text.slice(0, position), true);
+  const scanner = createScanner(text);
   const stack = [];
   let token;
   while ((token = scanner.scan()) !== SyntaxKind.EOF) {
+    const offset = scanner.getTokenOffset();
+    if (offset >= position) break;
+    if (offset + scanner.getTokenLength() > position) return false;
+    if (token >= SyntaxKind.LineCommentTrivia && token <= SyntaxKind.Trivia) continue;
     const parent = stack.at(-1);
     if (token === SyntaxKind.OpenBraceToken) {
       stack.push({ type: "object", phase: "key" });

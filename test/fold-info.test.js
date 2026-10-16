@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { json } from "@codemirror/lang-json";
+import { jsonc } from "../src/jsonc-language.js";
 import { codeFolding, foldEffect, foldedRanges, unfoldAll, unfoldEffect } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { foldAllRecursively } from "../src/fold-info.js";
 
 function createView(doc) {
-  let state = EditorState.create({ doc, extensions: [json(), codeFolding()] });
+  let state = EditorState.create({ doc, extensions: [jsonc(), codeFolding()] });
   return {
     get state() { return state; },
     dispatch(spec) { state = state.update(spec).state; },

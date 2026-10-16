@@ -34,3 +34,12 @@ test("still suggests quotes when the JSON is missing a comma before a property",
   assert.equal(complete('[\n  [1]\n  dsd\n]', "dsd"), null);
   assert.equal(complete('{\n  "a": dsd\n}', "dsd"), null);
 });
+
+test("ignores words inside comments and still completes keys after comments", () => {
+  assert.equal(complete('{\n// note\n}', "note"), null);
+  assert.equal(complete('{\n/* note */\n}', "note"), null);
+  assert.equal(complete('{\n/* unfinished', "unfinished"), null);
+  assert.equal(complete('{"text": "two words"}', "words"), null);
+  assert.equal(complete('{\n// note\nkey: 1}', "key")?.options[0].apply, '"key"');
+  assert.equal(complete('{ /* note */ key: 1}', "key")?.options[0].apply, '"key"');
+});

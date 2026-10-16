@@ -23,9 +23,9 @@
         },
         {
           "type": "files",
-          "label": "编辑 JSON 文件",
+          "label": "编辑 JSON / JSONC 文件",
           "fileType": "file",
-          "extensions": ["json"],
+          "extensions": ["json", "jsonc"],
           "maxLength": 1
         }
       ]

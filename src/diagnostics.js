@@ -1,23 +1,5 @@
-import { parseTree, printParseErrorCode } from "jsonc-parser";
-
-const errorMessages = {
-  InvalidSymbol: "无效字符，无法识别为 JSON 值",
-  InvalidNumberFormat: "数字格式不正确",
-  PropertyNameExpected: "这里需要双引号包裹的属性名",
-  ValueExpected: "这里需要 JSON 值",
-  ColonExpected: "属性名后缺少冒号 :",
-  CommaExpected: "相邻项目之间缺少逗号 ,",
-  CloseBraceExpected: "缺少右花括号 }",
-  CloseBracketExpected: "缺少右方括号 ]",
-  EndOfFileExpected: "顶层 JSON 值之后还有多余内容",
-  InvalidCommentToken: "标准 JSON 不支持注释，可使用底部的“去除注释”",
-  UnexpectedEndOfComment: "注释没有结束",
-  UnexpectedEndOfString: "字符串没有结束",
-  UnexpectedEndOfNumber: "数字没有结束",
-  InvalidUnicode: "Unicode 转义格式不正确",
-  InvalidEscapeCharacter: "字符串包含无效的转义字符",
-  InvalidCharacter: "包含无效字符",
-};
+import { parseTree, printParseErrorCode, stripComments } from "jsonc-parser";
+import { jsoncParseOptions, jsonErrorMessages } from "./jsonc.js";
 
 function diagnosticRange(offset, length, textLength) {
   if (length > 0) {
@@ -56,11 +38,12 @@ export function collectJsonDiagnostics(text) {
   if (!text.trim()) return [];
 
   const errors = [];
-  const tree = parseTree(text, errors, { disallowComments: true, allowTrailingComma: false });
+  const tree = parseTree(text, errors, jsoncParseOptions);
+  const uncommented = errors.length ? stripComments(text, " ") : text;
   const syntaxProblems = new Map();
   for (const error of errors) {
     const name = printParseErrorCode(error.error);
-    const before = text.slice(0, error.offset).trimEnd();
+    const before = uncommented.slice(0, error.offset).trimEnd();
     const trailingComma = (text[error.offset] === "}" || text[error.offset] === "]") && before.endsWith(",");
     const range = trailingComma
       ? { from: before.length - 1, to: before.length }
@@ -68,7 +51,7 @@ export function collectJsonDiagnostics(text) {
     const problem = {
       ...range,
       severity: "error",
-      message: trailingComma ? "结尾有多余逗号" : (errorMessages[name] ?? "JSON 语法错误"),
+      message: trailingComma ? "结尾有多余逗号" : (jsonErrorMessages[name] ?? "JSON 语法错误"),
       source: "JSON",
     };
     const key = `${range.from}:${range.to}`;

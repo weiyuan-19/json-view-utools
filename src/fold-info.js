@@ -1,10 +1,11 @@
 import { ensureSyntaxTree, foldEffect, foldNodeProp } from "@codemirror/language";
-import { jsonLanguage } from "@codemirror/lang-json";
+import { jsoncLanguage } from "./jsonc-language.js";
+import { parseJsonc } from "./jsonc.js";
 
 export function foldAllRecursively(view) {
   const { state } = view;
   const tree = ensureSyntaxTree(state, state.doc.length, 100)
-    ?? jsonLanguage.parser.parse(state.doc.toString());
+    ?? jsoncLanguage.parser.parse(state.doc.toString());
   const effects = [];
 
   tree.iterate({
@@ -23,7 +24,7 @@ export function foldAllRecursively(view) {
 
 export function describeFold(state, range) {
   try {
-    const value = JSON.parse(state.doc.sliceString(range.from - 1, range.to + 1));
+    const value = parseJsonc(state.doc.sliceString(range.from - 1, range.to + 1));
     const count = Array.isArray(value) ? value.length : Object.keys(value).length;
     return `${count} 项`;
   } catch {

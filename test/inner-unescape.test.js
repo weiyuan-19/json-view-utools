@@ -12,6 +12,16 @@ test("finds escaped string values across the whole document", () => {
   assert.deepEqual(escapedJsonItems('{"escaped\\nkey":"plain"}'), []);
 });
 
+test("unescaping JSONC finds real values and preserves surrounding comments", () => {
+  const source = '// "fake": "\\n"\n{ /* head */ "args": "{\\"a\\":1}" /* tail */ }';
+  const items = escapedJsonItems(source);
+  assert.equal(items.length, 1);
+  assert.deepEqual(items[0].path, ["args"]);
+  const state = EditorState.create({ doc: source });
+  const next = state.update({ changes: decodedItemChanges(items) }).state.doc.toString();
+  assert.equal(next, '// "fake": "\\n"\n{ /* head */ "args": {"a":1} /* tail */ }');
+});
+
 test("each listed item can replace its corresponding original value", () => {
   const source = JSON.stringify({ payload: '{"x":1,"x":2}' });
   const [item] = escapedJsonItems(source);

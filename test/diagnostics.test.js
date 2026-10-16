@@ -12,7 +12,7 @@ test("marks JSON syntax errors with useful ranges and messages", () => {
 });
 
 test("marks trailing commas themselves in objects and arrays", () => {
-  for (const source of ['{"a":1,}', '{"a":1, \n }', '[1,2,]', '[1,2, \n ]']) {
+  for (const source of ['{"a":1,}', '{"a":1, \n }', '[1,2,]', '[1,2, \n ]', '{"a":1, /* tail */}', '[1, // tail\n]']) {
     const trailing = collectJsonDiagnostics(source);
     assert.equal(trailing.length, 1);
     assert.match(trailing[0].message, /多余逗号/);
@@ -20,8 +20,28 @@ test("marks trailing commas themselves in objects and arrays", () => {
   }
 });
 
-test("rejects comments", () => {
-  assert.ok(collectJsonDiagnostics('// note\n{"a":1}').some((problem) => problem.message.includes("注释")));
+test("accepts line and block comments before, inside, and after JSON values", () => {
+  for (const source of [
+    '// note\n{"a":1}',
+    '{"6001": {// "sadad"\n"first_start_ts": 1791734400\n}}',
+    '/* head */ {"a" /* key */: [1, /* item */ 2]} // tail',
+    '{"url":"https://example.test", "text":"/* literal */ // literal"}',
+  ]) {
+    assert.deepEqual(collectJsonDiagnostics(source), []);
+  }
+});
+
+test("still reports unfinished comments and syntax errors around comments", () => {
+  assert.ok(collectJsonDiagnostics('{"a":1 /* unfinished').some((problem) => problem.message === "注释没有结束"));
+  const source = '{"a":1 /* note */ "b":2}';
+  assert.ok(collectJsonDiagnostics(source).some((problem) => problem.message.includes("逗号") && source.slice(problem.from, problem.to) === '"b"'));
+});
+
+test("duplicate key warnings preserve original offsets when comments are present", () => {
+  const source = '// head\n{"a":1, /* "fake": 2 */ "a":3}';
+  const warnings = collectJsonDiagnostics(source);
+  assert.equal(warnings.length, 2);
+  assert.ok(warnings.every((problem) => problem.severity === "warning" && source.slice(problem.from, problem.to) === '"a"'));
 });
 
 test("warns on every occurrence of repeated keys within the same object", () => {
