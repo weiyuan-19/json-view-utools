@@ -77,4 +77,6 @@ plugin/    自动生成的 uTools 插件目录，不提交 Git
 
 ## 发布资料
 
-应用市场介绍、使用说明、隐私说明和版本说明维护在 [`MARKETPLACE.md`](./MARKETPLACE.md) 中。
+版本说明与修改记录统一维护在 [`CHANGELOG.md`](./CHANGELOG.md) 中。
+
+应用市场介绍、使用说明和隐私说明维护在 [`MARKETPLACE.md`](./MARKETPLACE.md) 中。

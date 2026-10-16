@@ -24,7 +24,11 @@ Tests use `node:test` and `node:assert/strict`. Add or update a `*.test.js` file
 
 ## Commit & Pull Request Guidelines
 
-This repository has no commits yet, so no commit-message convention is established. Use short, imperative subjects that describe the change. Pull requests should explain the user-visible behavior, list verification commands, link a related issue when one exists, and include screenshots for interface changes. Do not commit generated `plugin/` output.
+Use short, imperative subjects that describe the change. Git commits and versions are independent: one version may contain multiple commits. Group all changes not yet pushed under one version entry in `CHANGELOG.md`; this does not require combining their Git commits. Until those changes are pushed, keep subsequent changes in the same version rather than incrementing for each commit. By default, increment the final numeric version component by one (for example, `0.1.0` → `0.1.1`); use a larger version change only when explicitly requested by the user. Keep `package.json`, the root package versions in `package-lock.json`, and `CHANGELOG.md` in sync. Managing version records alone does not authorize creating, amending, or squashing commits. Do not push unless explicitly requested.
+
+Keep `CHANGELOG.md` limited to version headings and user-facing change descriptions. Do not add dates, unreleased sections, validation results, or documentation-maintenance entries. Maintain version notes only in `CHANGELOG.md`; `MARKETPLACE.md` links to it.
+
+Pull requests should explain the user-visible behavior, list verification commands, link a related issue when one exists, and include screenshots for interface changes. Do not commit generated `plugin/` output.
 
 ## Agent Notes
 
