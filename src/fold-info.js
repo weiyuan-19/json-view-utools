@@ -1,3 +1,26 @@
+import { ensureSyntaxTree, foldEffect, foldNodeProp } from "@codemirror/language";
+import { jsonLanguage } from "@codemirror/lang-json";
+
+export function foldAllRecursively(view) {
+  const { state } = view;
+  const tree = ensureSyntaxTree(state, state.doc.length, 100)
+    ?? jsonLanguage.parser.parse(state.doc.toString());
+  const effects = [];
+
+  tree.iterate({
+    enter(cursor) {
+      const fold = cursor.type.prop(foldNodeProp);
+      const range = fold?.(cursor.node, state);
+      if (range && range.to > state.doc.lineAt(range.from).to) {
+        effects.push(foldEffect.of(range));
+      }
+    },
+  });
+
+  if (effects.length) view.dispatch({ effects });
+  return effects.length > 0;
+}
+
 export function describeFold(state, range) {
   try {
     const value = JSON.parse(state.doc.sliceString(range.from - 1, range.to + 1));

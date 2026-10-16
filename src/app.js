@@ -3,13 +3,13 @@ import { acceptCompletion, autocompletion } from "@codemirror/autocomplete";
 import { indentWithTab } from "@codemirror/commands";
 import { json } from "@codemirror/lang-json";
 import { getSearchQuery, openSearchPanel, search, SearchQuery, searchPanelOpen, setSearchQuery } from "@codemirror/search";
-import { bracketMatching, codeFolding, ensureSyntaxTree, foldAll, foldGutter, HighlightStyle, indentUnit, syntaxHighlighting, syntaxTree, unfoldAll } from "@codemirror/language";
+import { bracketMatching, codeFolding, foldGutter, HighlightStyle, indentUnit, syntaxHighlighting, syntaxTree, unfoldAll } from "@codemirror/language";
 import { forEachDiagnostic, linter } from "@codemirror/lint";
 import { EditorState } from "@codemirror/state";
 import { Decoration, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, placeholder, ViewPlugin } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { minimalSetup } from "codemirror";
-import { describeFold } from "./fold-info.js";
+import { describeFold, foldAllRecursively } from "./fold-info.js";
 import { collectJsonDiagnostics } from "./diagnostics.js";
 import { jsonPropertyCompletion } from "./completion.js";
 import { decodedItemChanges, escapedJsonItems, luaJsonItemChanges } from "./inner-unescape.js";
@@ -581,11 +581,10 @@ document.querySelector("#strip-comments").addEventListener("click", () => runTra
 document.querySelector("#minify").addEventListener("click", () => runTransform(minifyJson, "已压缩 JSON"));
 document.querySelector("#escape").addEventListener("click", () => runTransform(escapeJson, "已压缩并转义"));
 document.querySelector("#fold-all").addEventListener("click", () => {
-  ensureSyntaxTree(editor.state, editor.state.doc.length, 100);
-  showStatus(foldAll(editor) ? "已折叠全部，可点击行号旁箭头或省略号展开" : "当前没有可折叠的内容");
+  showStatus(foldAllRecursively(editor) ? "已递归折叠全部层级，可点击行号旁箭头或省略号逐层展开" : "当前没有可折叠的内容");
 });
 document.querySelector("#unfold-all").addEventListener("click", () => {
-  showStatus(unfoldAll(editor) ? "已展开全部" : "当前没有折叠的内容");
+  showStatus(unfoldAll(editor) ? "已展开全部层级" : "当前没有折叠的内容");
 });
 
 copyButton.addEventListener("click", async () => {
